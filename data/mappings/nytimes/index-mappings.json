@@ -24,15 +24,7 @@
                 "type": "boolean"
             },
             "keywords": {
-                "type": "nested",
-                "properties": {
-                    "id": {
-                        "type": "keyword"
-                    },
-                    "value": {
-                        "type": "keyword"
-                    }
-                }
+                "type": "keyword"
             },
             "pub_date": {
                 "type": "date",

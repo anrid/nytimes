@@ -22,7 +22,7 @@ var (
 	indexName = "nytimes-articles"
 
 	gzipDir       = pflag.String("dir", "data/", "Directory with GZIP files containing New York Times articles (filenames must end in `.json.gz`)")
-	startFrom     = pflag.String("start", "", "File to (re)start from")
+	startFrom     = pflag.String("start-from", "", "File to (re)start from")
 	detailedStats = pflag.Bool("detailed-stats", false, "Calculate detailed stats (WARN: requires lots of memory, use only when indexing few docs)")
 	maxDocs       = pflag.Int("max-docs", 5_000, "Max number of docs to index in bulk.")
 	createIndex   = pflag.Bool("create-index", false, "Drop and recreate a new index")
@@ -69,6 +69,8 @@ func main() {
 	var docs []interface{}
 	var docIDs []string
 	var startFromFileFound bool
+	var lastHeadline string
+	var lastPubDate string
 
 	stats := new(Stats)
 
@@ -144,29 +146,29 @@ func main() {
 			}
 
 			if len(docs) >= *maxDocs {
-				hl := sa.Headline
-				if len(hl) > 30 {
-					hl = hl[:30]
-				}
-
-				fmt.Printf("@ article %d  --  %s [%s]\n", articlesTotal, hl, sa.PubDate)
+				lastHeadline = sa.Headline
+				lastPubDate = sa.PubDate
 
 				indexer.BulkIndex(context.Background(), indexName, docIDs, docs)
 
 				docs = docs[:0]
 				docIDs = docIDs[:0]
 			}
+
+			if articlesTotal%50_000 == 0 {
+				if len(lastHeadline) > 50 {
+					lastHeadline = lastHeadline[:46] + " .."
+				}
+
+				fmt.Printf("@ article %d  --  %s [%s]\n", articlesTotal, lastHeadline, lastPubDate)
+			}
 		}
 
 		if len(docs) > 0 {
 			sa := docs[len(docs)-1].(*SearchArticle)
 
-			hl := sa.Headline
-			if len(hl) > 30 {
-				hl = hl[:30]
-			}
-
-			fmt.Printf("@ article %d  --  %s [%s]\n", articlesTotal, hl, sa.PubDate)
+			lastHeadline = sa.Headline
+			lastPubDate = sa.PubDate
 
 			indexer.BulkIndex(context.Background(), indexName, docIDs, docs)
 
@@ -258,11 +260,6 @@ func (s *Stats) Print() {
 	fmt.Printf("Indexing rate           : %.02f / sec\n", float64(s.TotalArticleCount)/secs)
 
 	for w, c := range s.Words {
-		// if len(w) > 2 {
-		// 	if w[0] == 'c' && w[1] == 'o' {
-		// 		fmt.Printf("%s:%d ", w, c)
-		// 	}
-		// }
 		sorted = append(sorted, entry{W: w, C: c})
 	}
 	fmt.Println("")

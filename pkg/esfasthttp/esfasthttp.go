@@ -1,6 +1,7 @@
 package esfasthttp
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -71,4 +72,30 @@ func (t *Transport) copyResponse(dst *http.Response, src *fasthttp.Response) *ht
 	dst.Body = io.NopCloser(strings.NewReader(string(src.Body())))
 
 	return dst
+}
+
+// LoggingTransport wraps our Transport to enable request logging.
+type LoggingTransport struct {
+	t             *Transport
+	EnableLogging bool
+	LogCount      int
+}
+
+func NewLoggingTransport() *LoggingTransport {
+	return &LoggingTransport{t: &Transport{}, EnableLogging: true}
+}
+
+// RoundTrip executes a request, returning a response, and prints information about the flow.
+func (t *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.EnableLogging {
+		// Print information about the request
+		fmt.Printf("> %s %s\n", req.Method, req.URL.String())
+		t.LogCount++
+	}
+
+	if t.LogCount >= 2 {
+		t.EnableLogging = false
+	}
+
+	return t.t.RoundTrip(req)
 }

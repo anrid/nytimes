@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -17,19 +16,27 @@ import (
 	"github.com/goccy/go-json"
 )
 
-type Search struct {
+var (
+	truee = true
+)
+
+type ES struct {
 	es *elasticsearch.Client
 
 	bulkIndexDocs int64
 	bulkIndexSecs float64
+	verboseOutput bool
 }
 
-func New(addrs []string) *Search {
+func New(addrs []string, verboseOutput bool) *ES {
 	var err error
-	s := new(Search)
+
+	s := &ES{
+		verboseOutput: verboseOutput,
+	}
 
 	config := elasticsearch.Config{
-		Transport: new(esfasthttp.Transport),
+		Transport: esfasthttp.NewLoggingTransport(),
 	}
 	config.Addresses = append(config.Addresses, addrs...)
 
@@ -68,14 +75,31 @@ func New(addrs []string) *Search {
 		time.Sleep(time.Second)
 	}
 
-	fmt.Println("Connected to ES successfully")
+	fmt.Println("Pinged ES successfully")
 
 	return s
 }
 
-func (s *Search) CreateIndex(ctx context.Context, mappingsDir, indexName string) {
-	truee := true
+func (s *ES) Search(ctx context.Context, queryJSON []byte, indexName string, useCache bool) (hits map[string]interface{}) {
+	res, err := esapi.SearchRequest{
+		Index:        []string{indexName},
+		Body:         bytes.NewReader(queryJSON),
+		Pretty:       true,
+		RequestCache: &useCache,
+	}.Do(ctx, s.es)
+	PanicOnError(res, err)
+	defer res.Body.Close()
 
+	hits = make(map[string]interface{})
+	err = json.NewDecoder(res.Body).Decode(&hits)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return
+}
+
+func (s *ES) CreateIndex(ctx context.Context, mappingsJSONFile, indexName string) {
 	// Delete test index if it exists.
 	res, err := esapi.IndicesDeleteRequest{
 		Index:             []string{indexName},
@@ -89,7 +113,7 @@ func (s *Search) CreateIndex(ctx context.Context, mappingsDir, indexName string)
 	// Create a new test index.
 	res, err = esapi.IndicesCreateRequest{
 		Index:  indexName,
-		Body:   bytes.NewReader(ReadJSONFile(mappingsDir, "index-mappings.json")),
+		Body:   bytes.NewReader(ReadJSONFile(mappingsJSONFile)),
 		Pretty: true,
 	}.Do(ctx, s.es)
 	PanicOnError(res, err)
@@ -97,7 +121,7 @@ func (s *Search) CreateIndex(ctx context.Context, mappingsDir, indexName string)
 	fmt.Printf("Created new index `%s` (status: %d)\n", indexName, res.StatusCode)
 }
 
-func (s *Search) BulkIndex(ctx context.Context, indexName string, docIDs []string, docs []interface{}) {
+func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, docs []interface{}) {
 	if len(docIDs) == 0 || len(docIDs) != len(docs) {
 		log.Fatalf("got %d doc IDs but %d docs", len(docIDs), len(docs))
 	}
@@ -134,15 +158,17 @@ func (s *Search) BulkIndex(ctx context.Context, indexName string, docIDs []strin
 	s.bulkIndexDocs += count
 	s.bulkIndexSecs += time.Since(timer).Seconds()
 
-	fmt.Printf("Bulk indexed %d docs (status: %d)\n", count, res.StatusCode)
+	if s.verboseOutput {
+		fmt.Printf("Bulk indexed %d docs (status: %d)\n", count, res.StatusCode)
+	}
 }
 
-func (s *Search) PrintBulkIndexingRate() {
+func (s *ES) PrintBulkIndexingRate() {
 	fmt.Printf("Bulk indexing rate: %.02f docs / sec\n", float64(s.bulkIndexDocs)/s.bulkIndexSecs)
 }
 
-func ReadJSONFile(mappingsDir, jsonFile string) []byte {
-	data, err := os.ReadFile(path.Join("data", "mappings", mappingsDir, jsonFile))
+func ReadJSONFile(file string) []byte {
+	data, err := os.ReadFile(file)
 	if err != nil {
 		log.Panic(err)
 	}

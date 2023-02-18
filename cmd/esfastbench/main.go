@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/anrid/nytimes/pkg/esfasthttp"
-	"github.com/anrid/nytimes/pkg/search"
+	search "github.com/anrid/nytimes/pkg/search/elasticsearch"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/spf13/pflag"
@@ -58,7 +58,7 @@ func main() {
 		// Create a new test index.
 		res, err = esapi.IndicesCreateRequest{
 			Index:  indexName,
-			Body:   bytes.NewReader(search.ReadJSONFile("test", "index-mappings.json")),
+			Body:   bytes.NewReader(search.ReadJSONFile("./assets/mappings/test/index-mappings.json")),
 			Pretty: true,
 		}.Do(ctx, es)
 		search.PanicOnError(res, err)
@@ -68,7 +68,7 @@ func main() {
 		res, err = esapi.IndexRequest{
 			Index:      indexName,
 			DocumentID: "a1",
-			Body:       bytes.NewReader(search.ReadJSONFile("test", "article-a1.json")),
+			Body:       bytes.NewReader(search.ReadJSONFile("./assets/mappings/test/article-a1.json")),
 		}.Do(ctx, es)
 		search.PanicOnError(res, err)
 
@@ -77,7 +77,7 @@ func main() {
 		res, err = esapi.IndexRequest{
 			Index:      indexName,
 			DocumentID: "a2",
-			Body:       bytes.NewReader(search.ReadJSONFile("test", "article-a2.json")),
+			Body:       bytes.NewReader(search.ReadJSONFile("./assets/mappings/test/article-a2.json")),
 			Refresh:    "true",
 		}.Do(ctx, es)
 		search.PanicOnError(res, err)
@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Test simple query.
-	query := search.ReadJSONFile("test", "query.json")
+	query := search.ReadJSONFile("./assets/mappings/test/query.json")
 
 	res, err := esapi.SearchRequest{
 		Index:  []string{indexName},

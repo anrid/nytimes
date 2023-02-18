@@ -1,0 +1,40 @@
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "PEN"
+          }
+        },
+        {
+          "range": {
+            "published_at": {
+              "gte": "2015-01-01T00:00:00+00:00"
+            }
+          }
+        },
+        {
+          "range": {
+            "likes": {
+              "gte": 50
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "comments",
+            "query": {
+              "match": {
+                "comments.body": {
+                  "query": "ONE TWO THREE",
+                  "operator": "and"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

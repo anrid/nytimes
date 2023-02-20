@@ -15,8 +15,8 @@ import (
 var (
 	count      = pflag.Int("count", 10, "number of calls to search engine")
 	indexName  = pflag.String("index", "nytimes-articles", "search engine index name")
-	useCache   = pflag.Bool("cache", true, "enable search engine caching (default: true)")
-	dumpResult = pflag.Bool("dump", false, "dump search engine result of first query (default: false)")
+	useCache   = pflag.Bool("cache", true, "enable search engine caching")
+	dumpResult = pflag.Bool("dump", false, "dump search engine result of first query")
 	queryJSON  = pflag.String("query", "./assets/mappings/nytimes/query-simple.json", "query to run (path to JSON file)")
 )
 

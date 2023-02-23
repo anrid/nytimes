@@ -37,11 +37,12 @@ func main() {
 
 	t := time.Now()
 	hits := s.Search(ctx, query, *indexName, *useCache)
-	fmt.Printf("Completed first request in %s\n", time.Since(t))
 
 	if *dumpResult {
 		util.Dump(hits)
 	}
+
+	fmt.Printf("Completed first request in %s\n", time.Since(t))
 
 	if *count < 1 {
 		fmt.Printf("count = 0, exiting!\n")

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/anrid/nytimes/pkg/search/es"
@@ -19,6 +20,7 @@ var (
 	useCache   = pflag.Bool("cache", true, "enable search engine caching")
 	dumpResult = pflag.Bool("dump", false, "dump search engine result of first query")
 	queryJSON  = pflag.String("query", "./assets/mappings/nytimes/query-simple.json", "query to run (path to JSON file)")
+	numThreads = pflag.Int("threads", 10, "number of threads to run benchmark in concurrently")
 )
 
 func main() {
@@ -27,7 +29,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1_000*time.Millisecond)
 	defer cancel()
 
-	s := es.New(nil, true)
+	s := es.New([]string{
+		"http://localhost:9200",
+		"http://localhost:9201",
+		"http://localhost:9202",
+	}, true)
 
 	// Load query from JSON file.
 	query := es.ReadJSONFile(*queryJSON)
@@ -50,35 +56,63 @@ func main() {
 	}
 
 	// Run benchmark
-	var durations []time.Duration
+	var wg sync.WaitGroup
+	var mux sync.Mutex
 	t = time.Now()
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	var totalReqs int
 
-	fmt.Printf("Running benchmark, iteration count: %d\n", *count)
+	for i := 0; i < *numThreads; i++ {
+		wg.Add(1)
 
-	for i := 0; i < *count; i++ {
-		t0 := time.Now()
+		go func(num int) {
+			var durations []time.Duration
+			t := time.Now()
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-		hits2 := s.Search(ctx, query, *indexName, *useCache)
-		if len(hits) != len(hits2) {
-			log.Panicf("hits size is %d but expected %d", len(hits2), len(hits))
-		}
+			fmt.Printf("[Thread %02d] running benchmark, %d iterations\n", num, *count)
 
-		durations = append(durations, time.Since(t0))
+			for i := 0; i < *count; i++ {
+				t0 := time.Now()
+
+				hits2 := s.Search(ctx, query, *indexName, *useCache)
+				if len(hits) != len(hits2) {
+					log.Panicf("hits size is %d but expected %d", len(hits2), len(hits))
+				}
+
+				durations = append(durations, time.Since(t0))
+
+				mux.Lock()
+				totalReqs++
+				mux.Unlock()
+			}
+
+			sorted := append(make([]time.Duration, 0), durations...)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+
+			fmt.Printf(
+				"[Thread %02d] completed %d requests in %s (%.1f req/s) | min: %s / max: %s / mean: %s\n",
+				num,
+				*count,
+				time.Since(t),
+				float64(*count)/time.Since(t).Seconds(),
+				sorted[0],
+				sorted[(len(sorted)-1)],
+				sorted[(len(sorted)-1)/2],
+			)
+
+			wg.Done()
+		}(i + 1)
 	}
 
-	sorted := append(make([]time.Duration, 0), durations...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	// Wait for all threads to finish.
+	wg.Wait()
 
 	fmt.Printf(
-		"Completed %d requests in %s (%.1f req/s) | min: %s / max: %s / mean: %s\n\n",
-		*count,
+		"Done. Completed %d requests total in %s (%.1f req/s)\n",
+		totalReqs,
 		time.Since(t),
-		float64(*count)/time.Since(t).Seconds(),
-		sorted[0],
-		sorted[(len(sorted)-1)],
-		sorted[(len(sorted)-1)/2],
+		float64(totalReqs)/time.Since(t).Seconds(),
 	)
 
 	statsAfter := s.Stats(ctx)

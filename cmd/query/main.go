@@ -35,7 +35,9 @@ func main() {
 
 	statsBefore := s.Stats(ctx)
 
+	t := time.Now()
 	hits := s.Search(ctx, query, *indexName, *useCache)
+	fmt.Printf("Completed first request in %s\n", time.Since(t))
 
 	if *dumpResult {
 		util.Dump(hits)
@@ -48,7 +50,7 @@ func main() {
 
 	// Run benchmark
 	var durations []time.Duration
-	t := time.Now()
+	t = time.Now()
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

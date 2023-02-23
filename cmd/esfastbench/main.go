@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/anrid/nytimes/pkg/esfasthttp"
 	search "github.com/anrid/nytimes/pkg/search/es"
 	"github.com/anrid/nytimes/pkg/util"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -30,7 +29,7 @@ func main() {
 	config := elasticsearch.Config{}
 	if !*useDefaultTransport {
 		fmt.Printf("Using FastHTTP transport\n")
-		config.Transport = new(esfasthttp.Transport)
+		config.Transport = new(search.Transport)
 	}
 
 	es, err := elasticsearch.NewClient(config)

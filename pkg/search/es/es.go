@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anrid/nytimes/pkg/esfasthttp"
+	"github.com/anrid/nytimes/pkg/util"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/goccy/go-json"
@@ -37,7 +37,7 @@ func New(addrs []string, verboseOutput bool) *ES {
 	}
 
 	config := elasticsearch.Config{
-		Transport: esfasthttp.NewLoggingTransport(),
+		Transport: NewLoggingTransport(),
 	}
 	config.Addresses = append(config.Addresses, addrs...)
 
@@ -143,7 +143,7 @@ func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, d
 	for i, id := range docIDs {
 		count++
 
-		sb.WriteString(`{"create":{"_id":"`)
+		sb.WriteString(`{"index":{"_id":"`)
 		sb.WriteString(id)
 		sb.WriteString(`"}}`)
 		sb.WriteRune('\n')
@@ -165,13 +165,12 @@ func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, d
 	}.Do(ctx, s.es)
 	PanicOnError(res, err)
 
-	var br BulkResponse
+	br := make(map[string]interface{})
 	Unmarshal(res, &br)
 
-	if br.Errors {
-		if len(br.Items) > 0 {
-			log.Panicf("Error while bulk indexing: %+v", br.Items[0])
-		}
+	if errs, ok := br["errors"].(bool); ok && errs {
+		util.Dump(br)
+		log.Panic("error while bulk indexing")
 	}
 
 	elapsed := time.Since(timer).Seconds()

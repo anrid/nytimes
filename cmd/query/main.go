@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"time"
 
-	search "github.com/anrid/nytimes/pkg/search/elasticsearch"
+	"github.com/anrid/nytimes/pkg/search/es"
+	"github.com/anrid/nytimes/pkg/util"
 	"github.com/spf13/pflag"
 )
 
@@ -26,16 +27,23 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1_000*time.Millisecond)
 	defer cancel()
 
-	s := search.New(nil, true)
+	s := es.New(nil, true)
 
 	// Load query from JSON file.
-	query := search.ReadJSONFile(*queryJSON)
+	query := es.ReadJSONFile(*queryJSON)
 	fmt.Printf("Query payload:\n%s\n", string(query))
+
+	statsBefore := s.Stats(ctx)
 
 	hits := s.Search(ctx, query, *indexName, *useCache)
 
 	if *dumpResult {
-		dump(hits)
+		util.Dump(hits)
+	}
+
+	if *count < 1 {
+		fmt.Printf("count = 0, exiting!\n")
+		os.Exit(0)
 	}
 
 	// Run benchmark
@@ -69,9 +77,14 @@ func main() {
 		sorted[(len(sorted)-1)],
 		sorted[(len(sorted)-1)/2],
 	)
-}
 
-func dump(o interface{}) {
-	d, _ := json.MarshalIndent(o, "", "  ")
-	fmt.Printf("DUMP:\n%s\n", string(d))
+	statsAfter := s.Stats(ctx)
+
+	qcMissDiff := statsAfter.All.Total.QueryCache.MissCount - statsBefore.All.Total.QueryCache.MissCount
+	qcHitsDiff := statsAfter.All.Total.QueryCache.HitCount - statsBefore.All.Total.QueryCache.HitCount
+	rcMissDiff := statsAfter.All.Total.RequestCache.MissCount - statsBefore.All.Total.RequestCache.MissCount
+	rcHitsDiff := statsAfter.All.Total.RequestCache.HitCount - statsBefore.All.Total.RequestCache.HitCount
+
+	fmt.Printf("Query cache   : +%-3d hits / +%-3d miss\n", qcHitsDiff, qcMissDiff)
+	fmt.Printf("Request cache : +%-3d hits / +%-3d miss\n", rcHitsDiff, rcMissDiff)
 }

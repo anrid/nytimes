@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"time"
 )
 
 type Indexer interface {
@@ -37,27 +36,28 @@ type NYTimesArticle struct {
 		Rank  int64  `json:"rank"`
 		Value string `json:"value"`
 	} `json:"keywords"`
-	LeadParagraph string `json:"lead_paragraph"`
-	Multimedia    []struct {
-		URL     string `json:"url"`
-		Width   int64  `json:"width"`
-		Height  int64  `json:"height"`
-		SubType string `json:"subType"`
-	} `json:"multimedia"`
-	PubDate    string    `json:"pub_date"`
-	PubDateUTC time.Time `json:"pub_date_utc"`
+	LeadParagraph string       `json:"lead_paragraph"`
+	Multimedia    []Multimedia `json:"multimedia"`
+	PubDate       string       `json:"pub_date"`
 }
 
 type SearchArticle struct {
-	ID            string   `json:"id"`
-	Abstract      string   `json:"abstract"`
-	Headline      string   `json:"headline"`
-	PrintHeadline string   `json:"print_headline"`
-	LeadParagraph string   `json:"lead_paragraph"`
-	Keywords      []string `json:"keywords"`
-	IsPublished   bool     `json:"is_published"`
-	PubDate       string   `json:"pub_date"`
-	PubDateS      string   `json:"pub_date_s"`
-	NumLikes      uint     `json:"num_likes"`
-	NumComments   uint     `json:"num_comments"`
+	ID            string       `json:"id"`
+	Abstract      string       `json:"abstract"`
+	Headline      string       `json:"headline"`
+	PrintHeadline string       `json:"print_headline"`
+	LeadParagraph string       `json:"lead_paragraph"`
+	Keywords      []string     `json:"keywords"`
+	IsPublished   bool         `json:"is_published"`
+	PubDate       string       `json:"pub_date"`
+	NumLikes      uint         `json:"num_likes"`
+	NumComments   uint         `json:"num_comments"`
+	Multimedia    []Multimedia `json:"multimedia"`
+}
+
+type Multimedia struct {
+	URL     string `json:"url"`
+	Width   int64  `json:"width"`
+	Height  int64  `json:"height"`
+	SubType string `json:"subType"`
 }

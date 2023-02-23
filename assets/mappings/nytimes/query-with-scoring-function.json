@@ -16,7 +16,10 @@
       "script_score": {
         "script": {
           "lang": "painless",
-          "source": "long origin = 32400000; if (doc['pub_date'].size() == 0.0) { return Math.exp(Math.abs(origin - doc['pub_date'].value.toInstant().toEpochMilli()) * (Math.log(0.1)/86400000))*100; } return Math.exp(Math.abs(origin - doc['pub_date'].value.toInstant().toEpochMilli()) * (Math.log(0.1)/86400000))*100;"
+          "params": {
+            "ms": 1677123638623
+          },
+          "source": "long origin = params['ms'] + 32400000; return Math.exp(Math.abs(origin - doc['pub_date'].value.toInstant().toEpochMilli()) * (Math.log(0.1)/86400000))*100;"
         }
       }
     }

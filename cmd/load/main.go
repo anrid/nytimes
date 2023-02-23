@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/anrid/nytimes/pkg/domain"
-	es "github.com/anrid/nytimes/pkg/search/elasticsearch"
+	"github.com/anrid/nytimes/pkg/search/es"
 	"github.com/anrid/nytimes/pkg/stats"
+	"github.com/anrid/nytimes/pkg/util"
 	"github.com/goccy/go-json"
 	"github.com/spf13/pflag"
 )
@@ -54,7 +55,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3_000*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if *createIndex {
@@ -122,6 +123,10 @@ func main() {
 		for _, a := range nyt.Response.Docs {
 			articlesTotal++
 
+			if articlesTotal == 1 {
+				util.Dump(a)
+			}
+
 			if !strings.HasSuffix(a.PubDate, "+0000") {
 				log.Fatalf("found unexpected data format `%s`", a.PubDate)
 			}
@@ -134,9 +139,9 @@ func main() {
 				LeadParagraph: a.LeadParagraph,
 				IsPublished:   true,
 				PubDate:       a.PubDate,
-				PubDateS:      a.PubDate,
 				NumLikes:      uint(len(a.Keywords)),
 				NumComments:   uint(len(a.Keywords) / 2),
+				Multimedia:    a.Multimedia,
 			}
 
 			// Add keywords.
@@ -167,6 +172,7 @@ func main() {
 				}
 
 				fmt.Printf("@ article %d  --  %s [%s]\n", articlesTotal, lastHeadline, lastPubDate)
+				indexer.PrintBulkIndexingRate()
 			}
 		}
 
@@ -185,14 +191,13 @@ func main() {
 		r.Close()
 		f.Close()
 
-		indexer.PrintBulkIndexingRate()
-
 		if *maxDocs > 0 && articlesTotal > *maxDocs {
 			fmt.Printf("Exceeded max after indexing %d articles (max: %d). Exiting!\n", articlesTotal, *maxDocs)
 			break
 		}
 	}
 
+	indexer.PrintBulkIndexingRate()
 	fmt.Printf("Done after %s. Indexed %d articles total.\n", time.Since(timer), articlesTotal)
 
 	if *detailedStats {

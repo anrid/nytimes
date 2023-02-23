@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/anrid/nytimes/pkg/esfasthttp"
-	search "github.com/anrid/nytimes/pkg/search/elasticsearch"
+	search "github.com/anrid/nytimes/pkg/search/es"
+	"github.com/anrid/nytimes/pkg/util"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/spf13/pflag"
@@ -102,7 +103,7 @@ func main() {
 	}
 
 	fmt.Printf("Got search result (status: %d)\n", res.StatusCode)
-	dump(hits)
+	util.Dump(hits)
 
 	// Run benchmark
 	var durations []time.Duration
@@ -141,9 +142,4 @@ func main() {
 		sorted[(len(sorted)-1)],
 		sorted[(len(sorted)-1)/2],
 	)
-}
-
-func dump(o interface{}) {
-	d, _ := json.MarshalIndent(o, "", "  ")
-	fmt.Printf("%s\n", string(d))
 }

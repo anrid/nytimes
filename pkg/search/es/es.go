@@ -1,4 +1,4 @@
-package search
+package es
 
 import (
 	"bytes"
@@ -23,9 +23,10 @@ var (
 type ES struct {
 	es *elasticsearch.Client
 
-	bulkIndexDocs int64
-	bulkIndexSecs float64
-	verboseOutput bool
+	bulkIndexDocs       int64
+	bulkIndexSecs       float64
+	bulkIndexLatestRate float64
+	verboseOutput       bool
 }
 
 func New(addrs []string, verboseOutput bool) *ES {
@@ -121,6 +122,15 @@ func (s *ES) CreateIndex(ctx context.Context, mappingsJSONFile, indexName string
 	fmt.Printf("Created new index `%s` (status: %d)\n", indexName, res.StatusCode)
 }
 
+func (s *ES) Stats(ctx context.Context) (sr StatsResponse) {
+	res, err := esapi.IndicesStatsRequest{}.Do(ctx, s.es)
+	PanicOnError(res, err)
+
+	Unmarshal(res, &sr)
+
+	return
+}
+
 func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, docs []interface{}) {
 	if len(docIDs) == 0 || len(docIDs) != len(docs) {
 		log.Fatalf("got %d doc IDs but %d docs", len(docIDs), len(docs))
@@ -155,8 +165,20 @@ func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, d
 	}.Do(ctx, s.es)
 	PanicOnError(res, err)
 
+	var br BulkResponse
+	Unmarshal(res, &br)
+
+	if br.Errors {
+		if len(br.Items) > 0 {
+			log.Panicf("Error while bulk indexing: %+v", br.Items[0])
+		}
+	}
+
+	elapsed := time.Since(timer).Seconds()
+
 	s.bulkIndexDocs += count
-	s.bulkIndexSecs += time.Since(timer).Seconds()
+	s.bulkIndexSecs += elapsed
+	s.bulkIndexLatestRate = float64(count) / elapsed
 
 	if s.verboseOutput {
 		fmt.Printf("Bulk indexed %d docs (status: %d)\n", count, res.StatusCode)
@@ -164,7 +186,7 @@ func (s *ES) BulkIndex(ctx context.Context, indexName string, docIDs []string, d
 }
 
 func (s *ES) PrintBulkIndexingRate() {
-	fmt.Printf("Bulk indexing rate: %.02f docs / sec\n", float64(s.bulkIndexDocs)/s.bulkIndexSecs)
+	fmt.Printf("Bulk indexing rate: %.02f docs / sec  (avg: %.02f)\n", s.bulkIndexLatestRate, float64(s.bulkIndexDocs)/s.bulkIndexSecs)
 }
 
 func ReadJSONFile(file string) []byte {
@@ -182,4 +204,50 @@ func PanicOnError(res *esapi.Response, err error) {
 	if res.IsError() {
 		log.Panicf("Error response: %s", res)
 	}
+}
+
+func Unmarshal(res *esapi.Response, o interface{}) {
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Panicf("Error reading response body: %s", res)
+	}
+
+	err = json.Unmarshal(data, o)
+	if err != nil {
+		log.Panicf("Error unmarshalling response body: %s", string(data))
+	}
+}
+
+type BulkResponse struct {
+	Errors bool `json:"errors"` // : false,
+	Items  []struct {
+		Index  struct{ Error ESError } `json:"index"`
+		Create struct{ Error ESError } `json:"create"`
+	} `json:"items"`
+}
+
+type ESError struct {
+	Type      string `json:"type"`       // Error type for the operation.
+	Reason    string `json:"reason"`     // Reason for the failed operation.
+	IndexUUID string `json:"index_uuid"` // The universally unique identifier (UUID) of the index associated with the failed operation.
+	Shard     string `json:"shard"`      // ID of the shard associated with the failed operation.
+	Index     string `json:"index"`      // Name of the index associated with the failed operation.
+}
+
+type StatsResponse struct {
+	Shards struct {
+		Total int `json:"total"` // : 3,
+	} `json:"_shards"`
+	All struct {
+		Total struct {
+			QueryCache struct {
+				HitCount  int64 `json:"hit_count"`
+				MissCount int64 `json:"miss_count"`
+			} `json:"query_cache"`
+			RequestCache struct {
+				HitCount  int64 `json:"hit_count"`
+				MissCount int64 `json:"miss_count"`
+			} `json:"request_cache"`
+		} `json:"total"`
+	} `json:"_all"`
 }

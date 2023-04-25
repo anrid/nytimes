@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/anrid/nytimes/pkg/domain"
+	"github.com/pkg/errors"
 )
 
 type ReadDirWithArticlesParams struct {
@@ -24,7 +25,7 @@ type ReadDirWithArticlesParams struct {
 	EachArticle func(articlesTotal int, isLast bool, a *domain.NYTimesArticle) error
 }
 
-func ReadDirWithArticles(p ReadDirWithArticlesParams) {
+func ReadDirWithArticles(p ReadDirWithArticlesParams) error {
 	var filesTotal int
 	var articlesTotal int
 	var startFromFileFound bool
@@ -123,7 +124,7 @@ func ReadDirWithArticles(p ReadDirWithArticlesParams) {
 
 			err = p.EachArticle(articlesTotal, false, a)
 			if err != nil {
-				log.Panic(err)
+				return errors.Wrap(err, "got error when calling EachArticle function")
 			}
 		}
 
@@ -141,4 +142,5 @@ func ReadDirWithArticles(p ReadDirWithArticlesParams) {
 	p.EachArticle(articlesTotal, true, nil)
 
 	fmt.Printf("Done. Read %d files in %s\n", filesTotal, time.Since(timer))
+	return nil
 }

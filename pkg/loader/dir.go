@@ -31,7 +31,9 @@ func ReadDirWithArticles(p ReadDirWithArticlesParams) error {
 	var startFromFileFound bool
 	timer := time.Now()
 
-	fmt.Printf("Reading dir: %s\n", p.Path)
+	if p.Verbose {
+		fmt.Printf("Reading dir: %s\n", p.Path)
+	}
 
 	des, err := os.ReadDir(p.Path)
 	if err != nil {

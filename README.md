@@ -180,3 +180,25 @@ The dataset is all NY Times articles since the Jan 1852, fetched from https://de
   "pub_date": "2022-08-01T00:00:09+0000"
 }
 ```
+
+# Generate data based on NY Times articles
+
+```bash
+# Generate 10 sentences with max 12 words each based on 10,000 NY Times articles.
+# The data follows the natural word distribution of the articles and uses a
+# "word graph" to ensure that words follow each other naturally, i.e. that a
+# word can naturally occur after another (as opposed to a completely random word).
+#
+$ go run cmd/datagen/main.go --dir ./data --start-from articles-2022 --max-docs 10_000 --num 10 --max-words 12
+
+navajo nation had announced on the nonprofit organization pen lope cruz by a
+criminally responsible by brands are so much of closure in case that lets
+nocturna’ review do visitors had provided the shop is there are cops who
+kurson kushner . but when amina begum stares at more daunting final challenge
+wanes after the jan . when the annual state of forbes avenue raised
+badder androids dream after the texas spike in this newsletter i speak and
+parton eminem planned meeting with black skinhead at the facebook illumina now there
+wants. . the winter . the nose the 1 million followers who attempted
+symonds . bp as ambitious ambassadors of the breach in the day buffeted
+cream-free creamy minty allure offering developed more leverage his front lines . said
+```

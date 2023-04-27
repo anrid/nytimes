@@ -15,6 +15,8 @@ var (
 	gzipDir   = pflag.String("dir", "data/", "Directory with GZIP files containing New York Times articles (filenames must end in `.json.gz`)")
 	startFrom = pflag.String("start-from", "", "File to (re)start from")
 	maxDocs   = pflag.Int("max-docs", 0, "Max number of docs to index")
+	num       = pflag.Int("num", 10, "Number of sentences to generate")
+	maxWords  = pflag.Int("max-words", 10, "Max number of words per generated sentence")
 	verbose   = pflag.BoolP("verbose", "v", false, "Verbose output")
 )
 
@@ -26,7 +28,8 @@ func main() {
 		log.Fatalf("missing --dir arg")
 	}
 
-	d := datagen.NewDict()
+	d := datagen.NewDictionary()
+	wg := datagen.NewWordGraph()
 
 	loader.ReadDirWithArticles(loader.ReadDirWithArticlesParams{
 		Path:      *gzipDir,
@@ -39,6 +42,7 @@ func main() {
 
 			if a != nil {
 				d.AddText(a.Abstract + " " + a.Headline.Main + " " + a.LeadParagraph)
+				wg.AddText(a.Abstract + " " + a.Headline.Main + " " + a.LeadParagraph)
 			}
 
 			if articlesTotal >= *maxDocs {
@@ -49,9 +53,10 @@ func main() {
 		},
 	})
 
-	d.Stats()
+	// d.Stats()
+	// wg.Dump()
 
-	for i := 0; i < 1_000; i++ {
-		fmt.Printf("s: %s\n", d.RandomSentence(10))
+	for i := 0; i < *num; i++ {
+		fmt.Printf("%s\n", wg.RandomSentence(*maxWords))
 	}
 }
